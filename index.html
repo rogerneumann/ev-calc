@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV vs Gas Calc</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+        h2 { color: #2c3e50; margin-top: 0; }
+        label { display: block; margin: 15px 0 5px; font-weight: bold; font-size: 14px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .result-box { background: #e8f4fd; padding: 15px; border-radius: 10px; margin-top: 20px; }
+        .val { font-weight: bold; color: #007bff; float: right; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>EV vs Gas Calculator</h2>
+        
+        <label>EV Efficiency (mi/kWh)</label>
+        <input type="number" id="miKwh" value="3.2" step="0.1" oninput="calculate()">
+
+        <label>Electricity Cost ($/kWh)</label>
+        <input type="number" id="elecCost" value="0.34" step="0.01" oninput="calculate()">
+
+        <label>Gas Price ($/gal)</label>
+        <input type="number" id="gasPrice" value="3.50" step="0.01" oninput="calculate()">
+
+        <label>Gas Car MPG (Comparison)</label>
+        <input type="number" id="gasMpg" value="30" oninput="calculate()">
+
+        <div class="result-box">
+            <p>Cost per Mile (EV): <span class="val" id="evCPM">--</span></p>
+            <p>Eq. Gas Price: <span class="val" id="eqGas">--</span></p>
+            <hr>
+            <p>EV "MPG" (Efficiency): <span class="val" id="mpge">--</span></p>
+            <p>Break-even Elec: <span class="val" id="beElec">--</span></p>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            const miKwh = parseFloat(document.getElementById('miKwh').value);
+            const elec = parseFloat(document.getElementById('elecCost').value);
+            const gas = parseFloat(document.getElementById('gasPrice').value);
+            const mpg = parseFloat(document.getElementById('gasMpg').value);
+
+            const evCPM = elec / miKwh;
+            const eqGas = (elec * mpg) / miKwh;
+            const mpge = miKwh * 33.7;
+            const beElec = (gas * miKwh) / mpg;
+
+            document.getElementById('evCPM').innerText = "$" + evCPM.toFixed(3);
+            document.getElementById('eqGas').innerText = "$" + eqGas.toFixed(2) + "/gal";
+            document.getElementById('mpge').innerText = mpge.toFixed(1) + " MPGe";
+            document.getElementById('beElec').innerText = "$" + beElec.toFixed(2) + "/kWh";
+        }
+        calculate();
+    </script>
+</body>
+</html>
