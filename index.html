@@ -1,62 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EV vs Gas Calc</title>
+    <title>EV Cost Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-        h2 { color: #2c3e50; margin-top: 0; }
-        label { display: block; margin: 15px 0 5px; font-weight: bold; font-size: 14px; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .result-box { background: #e8f4fd; padding: 15px; border-radius: 10px; margin-top: 20px; }
-        .val { font-weight: bold; color: #007bff; float: right; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+        body { background-color: #0f172a; color: white; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        input { background: rgba(0,0,0,0.2) !important; color: white !important; border: 1px solid #334155 !important; }
     </style>
 </head>
-<body>
-    <div class="card">
-        <h2>EV vs Gas Calculator</h2>
-        
-        <label>EV Efficiency (mi/kWh)</label>
-        <input type="number" id="miKwh" value="3.2" step="0.1" oninput="calculate()">
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-blue-400">EV vs Gas Tracker</h1>
+            <p class="text-slate-400">Analyze efficiency and cost over time.</p>
+        </header>
 
-        <label>Electricity Cost ($/kWh)</label>
-        <input type="number" id="elecCost" value="0.34" step="0.01" oninput="calculate()">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass p-6 rounded-2xl md:col-span-1">
+                <h2 class="text-lg font-semibold mb-4 border-b border-slate-700 pb-2">Inputs</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">mi/kWh</label>
+                        <input type="number" id="miKwh" value="3.2" step="0.1" oninput="calculate()" class="w-full rounded-lg p-2 outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Elec Cost ($/kWh)</label>
+                        <input type="number" id="elecCost" value="0.34" step="0.01" oninput="calculate()" class="w-full rounded-lg p-2 outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Gas Price ($/gal)</label>
+                        <input type="number" id="gasPrice" value="3.50" step="0.01" oninput="calculate()" class="w-full rounded-lg p-2 outline-none focus:border-blue-500">
+                    </div>
+                    <button onclick="saveDataPoint()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-bold transition">Save Data Point</button>
+                    <button onclick="clearHistory()" class="w-full text-slate-500 text-xs hover:text-red-400 mt-2">Clear History</button>
+                </div>
+            </div>
 
-        <label>Gas Price ($/gal)</label>
-        <input type="number" id="gasPrice" value="3.50" step="0.01" oninput="calculate()">
+            <div class="md:col-span-2 grid grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-2xl flex flex-col justify-center">
+                    <span class="text-slate-500 text-sm">Eq. Gas Price</span>
+                    <span id="eqGas" class="text-3xl font-bold text-blue-400">$0.00</span>
+                </div>
+                <div class="glass p-6 rounded-2xl flex flex-col justify-center">
+                    <span class="text-slate-500 text-sm">Break-even Elec</span>
+                    <span id="beElec" class="text-3xl font-bold text-green-400">$0.00</span>
+                </div>
+                <div class="glass p-6 rounded-2xl col-span-2">
+                    <span class="text-slate-500 text-sm">EV Efficiency</span>
+                    <div class="flex items-baseline gap-2">
+                        <span id="mpge" class="text-4xl font-bold">0</span>
+                        <span class="text-slate-400">MPGe</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <label>Gas Car MPG (Comparison)</label>
-        <input type="number" id="gasMpg" value="30" oninput="calculate()">
-
-        <div class="result-box">
-            <p>Cost per Mile (EV): <span class="val" id="evCPM">--</span></p>
-            <p>Eq. Gas Price: <span class="val" id="eqGas">--</span></p>
-            <hr>
-            <p>EV "MPG" (Efficiency): <span class="val" id="mpge">--</span></p>
-            <p>Break-even Elec: <span class="val" id="beElec">--</span></p>
+        <div class="glass p-6 rounded-2xl">
+            <h2 class="text-lg font-semibold mb-4">Cost Per Mile History ($)</h2>
+            <canvas id="historyChart" height="150"></canvas>
         </div>
     </div>
 
     <script>
-        function calculate() {
-            const miKwh = parseFloat(document.getElementById('miKwh').value);
-            const elec = parseFloat(document.getElementById('elecCost').value);
-            const gas = parseFloat(document.getElementById('gasPrice').value);
-            const mpg = parseFloat(document.getElementById('gasMpg').value);
+        let chart;
+        const ctx = document.getElementById('historyChart').getContext('2d');
 
-            const evCPM = elec / miKwh;
+        // Initial Load
+        window.onload = function() {
+            initChart();
+            calculate();
+        };
+
+        function calculate() {
+            const miKwh = parseFloat(document.getElementById('miKwh').value) || 0;
+            const elec = parseFloat(document.getElementById('elecCost').value) || 0;
+            const gas = parseFloat(document.getElementById('gasPrice').value) || 0;
+            const mpg = 30; // Standard comparison
+
             const eqGas = (elec * mpg) / miKwh;
             const mpge = miKwh * 33.7;
             const beElec = (gas * miKwh) / mpg;
 
-            document.getElementById('evCPM').innerText = "$" + evCPM.toFixed(3);
-            document.getElementById('eqGas').innerText = "$" + eqGas.toFixed(2) + "/gal";
-            document.getElementById('mpge').innerText = mpge.toFixed(1) + " MPGe";
-            document.getElementById('beElec').innerText = "$" + beElec.toFixed(2) + "/kWh";
+            document.getElementById('eqGas').innerText = "$" + eqGas.toFixed(2);
+            document.getElementById('mpge').innerText = Math.round(mpge);
+            document.getElementById('beElec').innerText = "$" + beElec.toFixed(2);
         }
-        calculate();
+
+        function saveDataPoint() {
+            const miKwh = parseFloat(document.getElementById('miKwh').value);
+            const elec = parseFloat(document.getElementById('elecCost').value);
+            const cpm = elec / miKwh;
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            let history = JSON.parse(localStorage.getItem('evHistory') || '[]');
+            history.push({ label: timestamp, value: cpm });
+            if (history.length > 10) history.shift(); // Keep last 10 points
+
+            localStorage.setItem('evHistory', JSON.stringify(history));
+            updateChart();
+        }
+
+        function initChart() {
+            const history = JSON.parse(localStorage.getItem('evHistory') || '[]');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: history.map(h => h.label),
+                    datasets: [{
+                        label: 'Cost Per Mile ($)',
+                        data: history.map(h => h.value),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: '#1e293b' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            const history = JSON.parse(localStorage.getItem('evHistory') || '[]');
+            chart.data.labels = history.map(h => h.label);
+            chart.data.datasets[0].data = history.map(h => h.value);
+            chart.update();
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('evHistory');
+            updateChart();
+        }
     </script>
 </body>
 </html>
